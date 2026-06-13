@@ -43,6 +43,39 @@ function TeamCode({ code, align }: { code: string; align: "left" | "right" }) {
   );
 }
 
+function formatScoreLine(home: number | null, away: number | null) {
+  if (home === null || away === null) return null;
+  return `${home}:${away}`;
+}
+
+function LockedScoreColumn({ match }: { match: MatchWithPrediction }) {
+  const apiScore = formatScoreLine(match.homeScore, match.awayScore);
+
+  return (
+    <div className="flex min-w-14 flex-col items-center gap-0.5">
+      {apiScore ? (
+        <span
+          className={cn(
+            "font-mono text-[10px] leading-none tabular-nums",
+            match.status === "LIVE"
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-muted-foreground",
+          )}
+        >
+          {apiScore}
+        </span>
+      ) : null}
+      {match.prediction ? (
+        <span className="font-mono text-lg font-bold tabular-nums">
+          {match.prediction.homeScore}:{match.prediction.awayScore}
+        </span>
+      ) : (
+        <span className="font-mono text-lg font-bold text-muted-foreground">—</span>
+      )}
+    </div>
+  );
+}
+
 function MatchRow({ match }: { match: MatchWithPrediction }) {
   const queryClient = useQueryClient();
   const [homeScore, setHomeScore] = useState(
@@ -124,9 +157,7 @@ function MatchRow({ match }: { match: MatchWithPrediction }) {
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           {match.locked ? (
-            <span className="min-w-14 text-center font-mono text-lg font-bold tabular-nums">
-              {match.homeScore ?? "-"}:{match.awayScore ?? "-"}
-            </span>
+            <LockedScoreColumn match={match} />
           ) : (
             <>
               <Input

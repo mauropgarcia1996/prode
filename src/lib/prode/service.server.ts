@@ -5,7 +5,12 @@ import { db } from "#/lib/db";
 import { matches, predictions, user } from "#/lib/db/schema";
 import { isAdminEmail } from "#/lib/prode/admin.server";
 import { assignRanks, calcPoints, isMatchLocked } from "#/lib/prode/scoring";
-import { syncMatchesIfNeeded, waitForSyncIfInProgress } from "#/lib/prode/sync";
+import {
+  getSyncStatus,
+  syncMatchesIfNeeded,
+  syncMatchesInBackground,
+  waitForSyncIfInProgress,
+} from "#/lib/prode/sync";
 import type {
   LeaderboardEntry,
   MatchWithPrediction,
@@ -18,10 +23,7 @@ export async function getAppContext(email: string) {
   };
 }
 
-export async function syncAndLoadMatches(userId: string) {
-  await waitForSyncIfInProgress();
-  const sync = await syncMatchesIfNeeded();
-
+export async function loadMatchesForUser(userId: string): Promise<MatchWithPrediction[]> {
   const allMatches = await db.select().from(matches).orderBy(asc(matches.kickoffAt));
   const userPredictions = await db
     .select()
@@ -33,7 +35,7 @@ export async function syncAndLoadMatches(userId: string) {
   );
 
   const now = new Date();
-  const mappedMatches: MatchWithPrediction[] = allMatches.map((match) => {
+  return allMatches.map((match) => {
     const prediction = predictionMap.get(match.externalId) ?? null;
     const locked = isMatchLocked(match.kickoffAt, match.status, now);
     const points =
@@ -65,8 +67,27 @@ export async function syncAndLoadMatches(userId: string) {
       points,
     };
   });
+}
 
-  return { sync, matches: mappedMatches };
+export async function syncAndLoadMatches(userId: string) {
+  const cachedMatches = await loadMatchesForUser(userId);
+
+  if (cachedMatches.length === 0) {
+    await waitForSyncIfInProgress();
+    const sync = await syncMatchesIfNeeded();
+    const matches =
+      sync.synced || cachedMatches.length === 0
+        ? await loadMatchesForUser(userId)
+        : cachedMatches;
+    return { sync, matches };
+  }
+
+  const sync = await getSyncStatus();
+  if (sync.stale) {
+    void syncMatchesInBackground();
+  }
+
+  return { sync, matches: cachedMatches };
 }
 
 export async function savePrediction(

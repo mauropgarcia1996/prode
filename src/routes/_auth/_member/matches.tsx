@@ -7,6 +7,7 @@ import { MatchesView } from "#/components/matches-view";
 import { matchesQueryOptions } from "#/lib/prode/queries";
 
 export const Route = createFileRoute("/_auth/_member/matches")({
+  loader: ({ context }) => context.queryClient.ensureQueryData(matchesQueryOptions()),
   component: MatchesPage,
 });
 

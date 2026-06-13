@@ -18,6 +18,8 @@ export const matchesQueryOptions = () =>
   queryOptions({
     queryKey: ["matches"],
     queryFn: ({ signal }) => $syncAndLoadMatches({ signal }),
+    staleTime: 30_000,
+    refetchInterval: (query) => (query.state.data?.sync.stale ? 10_000 : false),
   });
 
 export const leaderboardQueryOptions = () =>
