@@ -1,0 +1,40 @@
+# Dependencies
+node_modules
+
+# Build outputs
+.output
+dist
+build
+.vinxi
+.tanstack
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Deploy platforms
+.vercel
+.netlify
+.wrangler
+
+# Local tooling / cache
+.cache
+.data
+coverage
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE (local only)
+.idea
+
+# Legacy / unused paths from templates
+/api/
+/server/build
+/public/build
