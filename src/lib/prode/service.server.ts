@@ -6,9 +6,7 @@ import { matches, predictions, user } from "#/lib/db/schema";
 import { isAdminEmail } from "#/lib/prode/admin.server";
 import { assignRanks, calcPoints, isMatchLocked } from "#/lib/prode/scoring";
 import {
-  getSyncStatus,
   syncMatchesIfNeeded,
-  syncMatchesInBackground,
   waitForSyncIfInProgress,
 } from "#/lib/prode/sync";
 import type {
@@ -70,24 +68,10 @@ export async function loadMatchesForUser(userId: string): Promise<MatchWithPredi
 }
 
 export async function syncAndLoadMatches(userId: string) {
-  const cachedMatches = await loadMatchesForUser(userId);
-
-  if (cachedMatches.length === 0) {
-    await waitForSyncIfInProgress();
-    const sync = await syncMatchesIfNeeded();
-    const matches =
-      sync.synced || cachedMatches.length === 0
-        ? await loadMatchesForUser(userId)
-        : cachedMatches;
-    return { sync, matches };
-  }
-
-  const sync = await getSyncStatus();
-  if (sync.stale) {
-    void syncMatchesInBackground();
-  }
-
-  return { sync, matches: cachedMatches };
+  await waitForSyncIfInProgress();
+  const sync = await syncMatchesIfNeeded();
+  const matches = await loadMatchesForUser(userId);
+  return { sync, matches };
 }
 
 export async function savePrediction(

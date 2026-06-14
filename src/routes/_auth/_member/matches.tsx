@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_auth/_member/matches")({
 
 function MatchesPage() {
   const { isAdmin } = Route.useRouteContext();
-  const { data, isLoading, isError } = useQuery(matchesQueryOptions());
+  const { data, isPending, isError } = useQuery(matchesQueryOptions());
 
   return (
     <>
@@ -29,7 +29,7 @@ function MatchesPage() {
         ) : null}
       </div>
 
-      {isLoading ? <LoadingScreen /> : null}
+      {isPending ? <LoadingScreen /> : null}
       {isError ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
           No se pudieron cargar los partidos.
