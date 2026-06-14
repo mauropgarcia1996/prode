@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { format } from "date-fns";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { format, isToday } from "date-fns";
 import { es } from "date-fns/locale";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDownIcon } from "lucide-react";
@@ -48,11 +48,21 @@ function formatScoreLine(home: number | null, away: number | null) {
   return `${home}:${away}`;
 }
 
-function LockedScoreColumn({ match }: { match: MatchWithPrediction }) {
+function ScoreColumn({
+  match,
+  size = "default",
+}: {
+  match: MatchWithPrediction;
+  size?: "default" | "compact";
+}) {
   const apiScore = formatScoreLine(match.homeScore, match.awayScore);
+  const predictionClass =
+    size === "compact"
+      ? "font-mono text-sm font-bold tabular-nums"
+      : "font-mono text-lg font-bold tabular-nums";
 
   return (
-    <div className="flex min-w-14 flex-col items-center gap-0.5">
+    <div className={cn("flex flex-col items-center gap-0.5", size === "compact" ? "min-w-12" : "min-w-14")}>
       {apiScore ? (
         <span
           className={cn(
@@ -66,13 +76,74 @@ function LockedScoreColumn({ match }: { match: MatchWithPrediction }) {
         </span>
       ) : null}
       {match.prediction ? (
-        <span className="font-mono text-lg font-bold tabular-nums">
+        <span className={predictionClass}>
           {match.prediction.homeScore}:{match.prediction.awayScore}
         </span>
       ) : (
-        <span className="font-mono text-lg font-bold text-muted-foreground">—</span>
+        <span className={cn(predictionClass, "text-muted-foreground")}>—</span>
       )}
     </div>
+  );
+}
+
+function formatUpcomingKickoff(match: MatchWithPrediction) {
+  if (match.status === "LIVE") return "En vivo";
+
+  const kickoff = new Date(match.kickoffAt);
+  if (isToday(kickoff)) return `Hoy ${format(kickoff, "HH:mm", { locale: es })}`;
+  return format(kickoff, "EEE d MMM HH:mm", { locale: es });
+}
+
+function UpcomingMatchRow({ match }: { match: MatchWithPrediction }) {
+  return (
+    <div className="space-y-2 rounded-xl border bg-card px-3 py-2.5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
+        <span
+          className={cn(
+            match.status === "LIVE" && "font-medium text-emerald-600 dark:text-emerald-400",
+          )}
+        >
+          {formatUpcomingKickoff(match)}
+        </span>
+        <div className="flex flex-wrap items-center gap-1">
+          {match.locked ? <Badge variant="muted" className="px-1.5 py-0 text-[10px]">Bloqueado</Badge> : null}
+          {!match.prediction && !match.locked ? (
+            <Badge variant="warning" className="px-1.5 py-0 text-[10px]">
+              Sin predicción
+            </Badge>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <TeamCrest crest={match.homeCrest} code={match.homeTeam} />
+          <span className="font-mono text-xs font-bold tracking-wider">{match.homeTeam}</span>
+        </div>
+
+        <ScoreColumn match={match} size="compact" />
+
+        <div className="flex min-w-0 items-center justify-end gap-1.5">
+          <span className="font-mono text-xs font-bold tracking-wider">{match.awayTeam}</span>
+          <TeamCrest crest={match.awayCrest} code={match.awayTeam} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UpcomingMatches({ matches }: { matches: MatchWithPrediction[] }) {
+  if (matches.length === 0) return null;
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-semibold">Próximos partidos</h2>
+      <div className="grid gap-2">
+        {matches.map((match) => (
+          <UpcomingMatchRow key={match.externalId} match={match} />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -157,7 +228,7 @@ function MatchRow({ match }: { match: MatchWithPrediction }) {
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           {match.locked ? (
-            <LockedScoreColumn match={match} />
+            <ScoreColumn match={match} />
           ) : (
             <>
               <Input
@@ -317,6 +388,18 @@ export function MatchesView({ matches }: { matches: MatchWithPrediction[] }) {
     groupMatches.length > 0 ? "groups" : "knockout",
   );
 
+  const upcomingMatches = useMemo(
+    () =>
+      matches
+        .filter((match) => match.status !== "FINISHED")
+        .sort(
+          (left, right) =>
+            new Date(left.kickoffAt).getTime() - new Date(right.kickoffAt).getTime(),
+        )
+        .slice(0, 4),
+    [matches],
+  );
+
   return (
     <div className="space-y-6">
       {missingPredictions > 0 ? (
@@ -324,6 +407,8 @@ export function MatchesView({ matches }: { matches: MatchWithPrediction[] }) {
           Te faltan {missingPredictions} predicciones
         </div>
       ) : null}
+
+      <UpcomingMatches matches={upcomingMatches} />
 
       <PhaseTabBar tab={tab} onChange={setTab} />
 
